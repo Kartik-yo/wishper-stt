@@ -1,25 +1,32 @@
-name: Deploy Workflow
+name: Master Deployment Trigger
 
 on:
   workflow_dispatch:
     inputs:
-      domain:
-        description: 'Enter the domain for deployment'
+      environment:
+        description: 'Select environment to deploy'
         required: true
-        default: 'staging.example.com'
+        default: 'test'
+        type: choice
+        options:
+          - test
+          - prod
 
 jobs:
-  show-domain:
+  trigger-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Show selected domain
-        run: echo "Deploying to ${{ github.event.inputs.domain }}"
+      - name: Call environment-specific workflow
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const env = '${{ github.event.inputs.environment }}';
+            const workflow = env === 'prod' ? 'deploy-prod.yml' : 'deploy-test.yml';
 
-  deploy:
-    needs: show-domain
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to the selected domain
-        run: |
-          echo "Deploying to ${{ github.event.inputs.domain }}"
-          # Add your deployment script here
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: workflow,
+              ref: 'main',
+              inputs: {}
+            });
