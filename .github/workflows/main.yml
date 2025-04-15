@@ -1,3 +1,5 @@
+name: samplemainfile
+
 on:
   workflow_dispatch:
     inputs:
