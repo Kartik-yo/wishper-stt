@@ -1,32 +1,28 @@
-name: Master Deployment Trigger
-
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Select environment to deploy'
+      target:
+        description: 'Choose the pipeline to run'
         required: true
-        default: 'test'
         type: choice
         options:
-          - test
-          - prod
+          - deploy-test
+          - deploy-prod
 
 jobs:
-  trigger-deploy:
+  condition-set:
     runs-on: ubuntu-latest
-    steps:
-      - name: Call environment-specific workflow
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const env = '${{ github.event.inputs.environment }}';
-            const workflow = env === 'prod' ? 'deploy-prod.yml' : 'deploy-test.yml';
+    outputs:
+      run-test: ${{ steps.set.outputs.run-test }}
+      run-prod: ${{ steps.set.outputs.run-prod }}
 
-            github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: workflow,
-              ref: 'main',
-              inputs: {}
-            });
+    steps:
+      - id: set
+        run: |
+          if [[ "${{ github.event.inputs.target }}" == "deploy-test" ]]; then
+            echo "run-test=true" >> $GITHUB_OUTPUT
+            echo "run-prod=false" >> $GITHUB_OUTPUT
+          else
+            echo "run-test=false" >> $GITHUB_OUTPUT
+            echo "run-prod=true" >> $GITHUB_OUTPUT
+          fi
