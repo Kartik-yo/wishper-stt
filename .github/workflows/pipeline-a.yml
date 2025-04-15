@@ -2,19 +2,15 @@ name: Pipeline A
 
 on:
   workflow_run:
-    workflows: ["Master Pipeline"]
+    workflows: ["Master Workflow"]
     types:
-      - requested
+      - completed
 
 jobs:
   deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.name == 'Master Workflow' }}
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      
-      - name: Deploy to Pipeline A
-        run: |
-          echo "Deploying Pipeline A..."
-          # Add your deployment logic here for Pipeline A
+      - name: Run only if Pipeline A was selected
+        if: ${{ github.event.workflow_run.head_commit.message contains 'pipeline-a' }}
+        run: echo "Running Pipeline A steps..."
