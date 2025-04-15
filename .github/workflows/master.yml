@@ -1,9 +1,9 @@
-name: sample Master Pipeline
+name: Master Workflow
 
 on:
   workflow_dispatch:
     inputs:
-      pipeline:
+      target:
         description: 'Choose the pipeline to run'
         required: true
         type: choice
@@ -12,18 +12,19 @@ on:
           - pipeline-b
 
 jobs:
-  trigger-pipeline:
+  condition-set:
     runs-on: ubuntu-latest
-    
+    outputs:
+      run-a: ${{ steps.set.outputs.run-a }}
+      run-b: ${{ steps.set.outputs.run-b }}
+
     steps:
-      - name: Trigger selected pipeline
+      - id: set
         run: |
-          if [ "${{ github.event.inputs.pipeline }}" == "pipeline-a" ]; then
-            echo "Triggering Pipeline A..."
-            # Call pipeline A directly (using `workflow_run` or by a different means)
-            gh workflow run pipeline-a.yml --ref main  # Replace with your specific command
-          elif [ "${{ github.event.inputs.pipeline }}" == "pipeline-b" ]; then
-            echo "Triggering Pipeline B..."
-            # Call pipeline B directly
-            gh workflow run pipeline-b.yml --ref main  # Replace with your specific command
+          if [[ "${{ github.event.inputs.target }}" == "pipeline-a" ]]; then
+            echo "run-a=true" >> $GITHUB_OUTPUT
+            echo "run-b=false" >> $GITHUB_OUTPUT
+          else
+            echo "run-a=false" >> $GITHUB_OUTPUT
+            echo "run-b=true" >> $GITHUB_OUTPUT
           fi
