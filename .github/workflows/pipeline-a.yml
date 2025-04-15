@@ -1,0 +1,20 @@
+name: Pipeline A
+
+on:
+  workflow_run:
+    workflows: ["Master Pipeline"]
+    types:
+      - requested
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Deploy to Pipeline A
+        run: |
+          echo "Deploying Pipeline A..."
+          # Add your deployment logic here for Pipeline A
