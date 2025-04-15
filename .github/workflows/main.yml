@@ -12,22 +12,13 @@ on:
           - deploy-prod
 
 jobs:
-  condition-set:
+  trigger-child:
     runs-on: ubuntu-latest
-    outputs:
-      run-test: ${{ steps.set.outputs.run-test }}
-      run-prod: ${{ steps.set.outputs.run-prod }}
-
     steps:
-      - id: set
+      - name: Trigger child workflow
         run: |
-          if [[ "${{ github.event.inputs.target }}" == "deploy-test" ]]; then
-            echo "run-test=true" >> $GITHUB_OUTPUT
-            echo "run-prod=false" >> $GITHUB_OUTPUT
-          else
-            echo "run-test=false" >> $GITHUB_OUTPUT
-            echo "run-prod=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Print selection
-        run: echo "User selected ${{ github.event.inputs.target }}"
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/dispatches \
+            -d '{"event_type":"${{ github.event.inputs.target }}"}'
