@@ -1,0 +1,82 @@
+name: testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_env:
+        description: 'Choose deployment target'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - qa
+          - production
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '21.6.1'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build the application
+        run: npm run build
+
+      - name: Archive static files from dist
+        run: |
+          [ -d "dist/assets" ] || { echo "assets directory not found"; exit 1; }
+          [ -d "dist/img" ] || { echo "img directory not found"; exit 1; }
+          [ -f "dist/index.html" ] || { echo "index.html not found"; exit 1; }
+          [ -d "public" ] || { echo "public directory not found"; exit 1; }
+
+          tar -czf static-files.tar.gz -C dist assets img index.html -C .. public .env
+
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
+
+      - name: Set deploy path variable
+        id: set_path
+        run: |
+          if [ "${{ github.event.inputs.deploy_env }}" = "production" ]; then
+            echo "path=/root/production/demo.aceint.ai/frontend/" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.deploy_env }}" = "staging" ]; then
+            echo "path=/root/staging/demo.aceint.ai/frontend/" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.deploy_env }}" = "qa" ]; then
+            echo "path=/root/qa/demo.aceint.ai/frontend/" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy static files to server
+        run: |
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" scp -o StrictHostKeyChecking=no static-files.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ steps.set_path.outputs.path }}
+
+      - name: Extract and Deploy on server
+        run: |
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
+          cd ${{ steps.set_path.outputs.path }}
+
+          TIMESTAMP=\$(date +'%Y%m%d%H%M%S')
+          mkdir -p backup_resources/\$TIMESTAMP
+          [ -d "assets" ] && mv assets backup_resources/\$TIMESTAMP/
+          [ -d "img" ] && mv img backup_resources/\$TIMESTAMP/
+          [ -f "index.html" ] && mv index.html backup_resources/\$TIMESTAMP/
+          [ -d "public" ] && mv public backup_resources/\$TIMESTAMP/
+          [ -d ".env" ] && mv .env backup_resources/\$TIMESTAMP/
+
+          tar -xzf static-files.tar.gz
+          rm static-files.tar.gz
+
+          [ -d "public" ] && mv public ../
+          [ -d ".env" ] && mv .env ../
+
+          systemctl restart nginx
+          EOF
