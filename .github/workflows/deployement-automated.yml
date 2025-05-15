@@ -1,4 +1,4 @@
-name: testing
+name: testing new
 
 on:
   workflow_dispatch:
